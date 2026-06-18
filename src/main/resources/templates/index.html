@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-slate-50" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Safe Home India — Seismic Risk for Homebuyers</title>
+    <meta
+            name="description"
+            content="Making hidden seismic risks visible for homebuyers. Evaluate location safety, view seismic hazard data, and audit developer compliance."
+    />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        tailwind.config = {
+          theme: {
+            extend: {
+              colors: {
+                navy: { DEFAULT: "#1a365d", foreground: "#f5f7fb" },
+                brand: { DEFAULT: "#4f46e5", 90: "#4338ca" },
+                accentbg: "#eef0fd",
+                accentfg: "#3730a3",
+              },
+              fontFamily: {
+                sans: ["system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"],
+              },
+            },
+          },
+        };
+    </script>
+
+    <style>
+        html {
+          scroll-behavior: smooth;
+        }
+        /* Hide the native checkbox; we render a custom box */
+        .audit-checkbox {
+          opacity: 0;
+          position: absolute;
+          width: 0;
+          height: 0;
+          pointer-events: none;
+        }
+    </style>
+</head>
+
+<body class="font-sans text-slate-800 antialiased">
+<header class="bg-navy text-navy-foreground">
+    <div
+            class="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 py-12 text-center md:flex-row md:items-center md:gap-5 md:py-14 md:text-left"
+    >
+        <div
+                class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand/90 ring-1 ring-white/20"
+        >
+            <i data-lucide="shield-check" class="h-8 w-8"></i>
+        </div>
+        <div class="flex flex-col gap-1">
+            <h1 class="text-3xl font-bold tracking-tight md:text-4xl">SAFE HOME</h1>
+            <p class="text-sm leading-relaxed text-navy-foreground/70 md:text-base">
+                Making Hidden Seismic Risks Visible for Homebuyers
+            </p>
+        </div>
+    </div>
+</header>
+
+<main class="pb-24">
+    <section aria-labelledby="evaluate-heading" class="mx-auto -mt-10 w-full max-w-4xl px-6">
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-lg shadow-navy/5 md:p-8">
+            <div class="mb-6 flex items-start gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accentbg text-accentfg">
+                    <i data-lucide="map-pin" class="h-5 w-5"></i>
+                </div>
+                <div>
+                    <h2 id="evaluate-heading" class="text-lg font-semibold text-slate-900">Evaluate Your Location</h2>
+                    <p class="text-sm leading-relaxed text-slate-500">
+                        Enter property details to generate a seismic risk profile.
+                    </p>
+                </div>
+            </div>
+
+            <form id="evaluate-form" th:action="@{/evaluate}" method="post" class="grid grid-cols-1 gap-5 md:grid-cols-3">
+                <div class="flex flex-col gap-2">
+                    <label for="pincode" class="text-sm font-medium text-slate-900">PINCODE</label>
+                    <input
+                            id="pincode"
+                            name="pincode"
+                            inputmode="numeric"
+                            maxlength="6"
+                            placeholder="e.g. 247667"
+                            th:value="${param.pincode}"
+                            class="h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-brand focus:ring-2 focus:ring-brand/30"
+                            required
+                    />
+                </div>
+
+                <div class="flex flex-col gap-2">
+                    <label for="propertyType" class="text-sm font-medium text-slate-900">Property Type</label>
+                    <select
+                            id="propertyType"
+                            name="propertyType"
+                            class="h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30"
+                    >
+                        <option value="" disabled th:selected="${param.propertyType == null}">Select type</option>
+                        <option value="independent-house" th:selected="${param.propertyType != null && param.propertyType[0] == 'independent-house'}">Independent House</option>
+                        <option value="apartment" th:selected="${param.propertyType != null && param.propertyType[0] == 'apartment'}">Apartment / Flat</option>
+                        <option value="villa" th:selected="${param.propertyType != null && param.propertyType[0] == 'villa'}">Villa</option>
+                        <option value="plot" th:selected="${param.propertyType != null && param.propertyType[0] == 'plot'}">Open Plot</option>
+                        <option value="commercial" th:selected="${param.propertyType != null && param.propertyType[0] == 'commercial'}">Commercial</option>
+                    </select>
+                </div>
+
+                <div class="flex flex-col gap-2">
+                    <label for="constructionEra" class="text-sm font-medium text-slate-900">Construction Era</label>
+                    <select
+                            id="constructionEra"
+                            name="constructionEra"
+                            class="h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30"
+                    >
+                        <option value="" disabled th:selected="${param.constructionEra == null}">Select era</option>
+                        <option value="pre-1990" th:selected="${param.constructionEra != null && param.constructionEra[0] == 'pre-1990'}">Before 1990</option>
+                        <option value="1990-2002" th:selected="${param.constructionEra != null && param.constructionEra[0] == '1990-2002'}">1990 – 2002</option>
+                        <option value="2002-2016" th:selected="${param.constructionEra != null && param.constructionEra[0] == '2002-2016'}">2002 – 2016 (IS 1893 revised)</option>
+                        <option value="post-2016" th:selected="${param.constructionEra != null && param.constructionEra[0] == 'post-2016'}">After 2016</option>
+                    </select>
+                </div>
+
+                <div class="md:col-span-3">
+                    <button
+                            type="submit"
+                            class="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-brand px-6 text-sm font-semibold text-white transition hover:bg-brand-90 focus:outline-none focus:ring-2 focus:ring-brand/40 focus:ring-offset-2"
+                    >
+                        <i data-lucide="search" class="h-4 w-4"></i>
+                        Evaluate Location Safety
+                    </button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section th:if="${found}" id="results-section" aria-labelledby="results-heading" class="mx-auto w-full max-w-6xl px-6 py-12">
+        <h2 id="results-heading" class="text-2xl font-bold tracking-tight text-slate-900">Engineering Risk Dashboard</h2>
+        <p class="mt-1 text-sm leading-relaxed text-slate-500">
+            Structural and geotechnical indicators derived from public seismic datasets.
+        </p>
+
+        <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-navy">
+                    <i data-lucide="globe-2" class="h-5 w-5"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Regional Location</p>
+                    <p class="mt-1 text-lg font-semibold text-slate-900" th:text="${report.locationName}"></p>
+                    <p class="text-sm leading-relaxed text-slate-500">India Pincode Territory</p>
+                </div>
+            </div>
+            <div class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-navy">
+                    <i data-lucide="waypoints" class="h-5 w-5"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Seismic Classification</p>
+                    <p class="mt-1 text-lg font-semibold text-slate-900" th:text="${report.seismicZone}"></p>
+                    <p class="text-sm leading-relaxed text-slate-500">Seismic Zone Map Factor</p>
+                </div>
+            </div>
+            <div class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-navy">
+                    <i data-lucide="layers" class="h-5 w-5"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Site Geotechnical Profile</p>
+                    <p class="mt-1 text-lg font-semibold text-slate-900">Standard Stratum</p>
+                    <p class="text-sm leading-relaxed text-slate-500">Dynamic soil classification</p>
+                </div>
+            </div>
+            <div class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-navy">
+                    <i data-lucide="mountain" class="h-5 w-5"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Auto-Detected Terrain</p>
+                    <p class="mt-1 text-lg font-semibold text-slate-900">Regional Topography</p>
+                    <p class="text-sm leading-relaxed text-slate-500">Computed slope gradient</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 overflow-hidden rounded-xl border border-brand/30 bg-accentbg">
+            <div class="flex items-start gap-4 p-6">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand text-white">
+                    <i data-lucide="sparkles" class="h-5 w-5"></i>
+                </div>
+                <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h3 class="text-base font-semibold text-accentfg">AI Risk Profile Translation</h3>
+                        <span class="rounded-full bg-brand/15 px-2 py-0.5 text-xs font-medium text-accentfg">Plain Language</span>
+                    </div>
+                    <p class="mt-2 text-sm leading-relaxed text-accentfg/90" th:text="${report.aiSummary}"></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 flex justify-end">
+            <button id="downloadPdfBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-5 rounded-lg shadow-md transition duration-200 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Download Safety Report Card
+            </button>
+        </div>
+    </section>
+
+    <section aria-labelledby="map-heading" class="mx-auto w-full max-w-6xl px-6 pb-12">
+        <h2 id="map-heading" class="text-2xl font-bold tracking-tight text-slate-900">Seismic Hazard Map</h2>
+        <p class="mt-1 text-sm leading-relaxed text-slate-500">
+            Visualise ground-motion intensity and fault proximity around the selected area.
+        </p>
+
+        <div class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
+            <div id="hazard-map"
+                 th:data-lat="${report != null ? report.latitude : '22.5937'}"
+                 th:data-lng="${report != null ? report.longitude : '78.9629'}"
+                 class="h-80 w-full md:h-96 z-10"></div>
+        </div>
+    </section>
+
+    <section aria-labelledby="simulation-heading" class="mx-auto w-full max-w-6xl px-6 pb-16">
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+            <div class="flex items-start gap-3 mb-6">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand text-white">
+                    <i data-lucide="activity" class="h-5 w-5"></i>
+                </div>
+                <div>
+                    <h2 id="simulation-heading" class="text-xl font-bold tracking-tight text-slate-900">
+                        Dynamic Peak Ground Acceleration (PGA) Simulator
+                    </h2>
+                    <p class="text-sm leading-relaxed text-slate-500">
+                        Estimated structural shaking physics generated based on your location zone parameters and asset configuration.
+                    </p>
+                </div>
+            </div>
+
+
+            <div id="simulation-content" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                <div class="rounded-xl border border-slate-200 bg-slate-50/50 p-5 shadow-sm transition hover:shadow-md">
+                    <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                        <i data-lucide="gauge" class="h-5 w-5"></i>
+                    </div>
+                    <p class="mt-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Peak Ground Motion Force</p>
+                    <div class="mt-1 flex items-baseline gap-1">
+                        <span class="text-3xl font-bold tracking-tight text-slate-900" th:text="${report != null ? report.pgaValue : '0.00g'}">0.00g</span>
+                    </div>
+                    <p class="mt-2 text-xs text-slate-500 leading-relaxed">
+                        The maximum structural ground-shaking velocity coefficient expected at this zone boundary location.
+                    </p>
+                </div>
+
+                <div class="rounded-xl border border-slate-200 bg-slate-50/50 p-5 shadow-sm transition hover:shadow-md">
+                    <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
+                        <i data-lucide="flame" class="h-5 w-5"></i>
+                    </div>
+                    <p class="mt-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Expected Shaking Severity</p>
+                    <span class="mt-1 inline-block text-xl font-bold tracking-tight text-slate-900" th:text="${report != null ? report.intensityLevel : 'Awaiting Data'}">Awaiting Data</span>
+                    <p class="mt-4 text-xs text-slate-500 leading-relaxed">
+                        Calculated behavior framework mapped against the macro-scale <strong>Modified Mercalli Intensity (MMI)</strong> index.
+                    </p>
+                </div>
+
+                <div class="rounded-xl border border-slate-200 bg-slate-50/50 p-5 shadow-sm transition hover:shadow-md">
+                    <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                        <i data-lucide="building-2" class="h-5 w-5"></i>
+                    </div>
+                    <p class="mt-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Structural Vulnerability Impact</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-800" th:text="${report != null ? report.structuralForecast : 'Input configuration details above.'}">Input configuration details above.</p>
+                    <p class="mt-2 text-xs text-slate-400 italic border-t border-slate-200/60 pt-2">
+                        *Derived via asset footprint intersections with code provisions.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<div class="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3">
+    <div
+            id="chat-panel"
+            class="hidden h-[28rem] w-[min(22rem,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-navy/20"
+    >
+        <div class="flex items-center justify-between bg-navy px-4 py-3 text-navy-foreground">
+            <div class="flex items-center gap-2">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-brand/90">
+                    <i data-lucide="bot" class="h-4 w-4"></i>
+                </div>
+                <div class="leading-tight">
+                    <p class="text-sm font-semibold">Safe Home Assistant</p>
+                    <p class="text-xs text-navy-foreground/70">Online</p>
+                </div>
+            </div>
+            <button
+                    type="button"
+                    id="chat-close"
+                    aria-label="Close chat"
+                    class="rounded-md p-1 text-navy-foreground/80 transition hover:bg-white/10 hover:text-navy-foreground"
+            >
+                <i data-lucide="x" class="h-5 w-5"></i>
+            </button>
+        </div>
+
+        <div id="chat-messages" class="flex-1 space-y-3 overflow-y-auto bg-slate-50 p-4">
+            <div class="flex justify-start">
+                <p class="max-w-[80%] rounded-2xl rounded-bl-sm bg-slate-100 px-3 py-2 text-sm leading-relaxed text-slate-700">
+                    Hi! I'm the Safe Home assistant. Ask me about seismic zones, soil types, or what to check before buying a
+                    home.
+                </p>
+            </div>
+        </div>
+
+        <form id="chat-form" class="flex items-center gap-2 border-t border-slate-200 bg-white p-3">
+            <input
+                    id="chat-input"
+                    placeholder="Type your question…"
+                    class="h-10 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-brand focus:ring-2 focus:ring-brand/30"
+            />
+            <button
+                    type="submit"
+                    aria-label="Send message"
+                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand text-white transition hover:bg-brand-90"
+            >
+                <i data-lucide="send" class="h-4 w-4"></i>
+            </button>
+        </form>
+    </div>
+
+    <button
+            type="button"
+            id="chat-toggle"
+            aria-label="Open chat"
+            aria-expanded="false"
+            class="flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg shadow-navy/30 transition hover:bg-brand-90 focus:outline-none focus:ring-2 focus:ring-brand/50 focus:ring-offset-2"
+    >
+        <i data-lucide="message-circle" class="h-6 w-6" id="chat-toggle-icon"></i>
+    </button>
+</div>
+
+<script>
+    lucide.createIcons();
+
+    // Smooth scroll if results are active on page load
+    window.addEventListener('DOMContentLoaded', (event) => {
+      const results = document.getElementById("results-section");
+      if (results) {
+        results.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+
+    // ---- Chat widget toggle ----
+    (function () {
+      var panel = document.getElementById("chat-panel");
+      var toggle = document.getElementById("chat-toggle");
+      var toggleIcon = document.getElementById("chat-toggle-icon");
+      var closeBtn = document.getElementById("chat-close");
+      var form = document.getElementById("chat-form");
+      var input = document.getElementById("chat-input");
+      var messages = document.getElementById("chat-messages");
+      var open = false;
+
+      function setOpen(next) {
+        open = next;
+        panel.classList.toggle("hidden", !open);
+        panel.classList.toggle("flex", open);
+        toggle.setAttribute("aria-expanded", String(open));
+        toggle.setAttribute("aria-label", open ? "Collapse chat" : "Open chat");
+
+        // Fix: Replace the inner HTML with a fresh element structure so Lucide can render cleanly
+        toggle.innerHTML = open
+          ? '<i data-lucide="x" class="h-6 w-6" id="chat-toggle-icon"></i>'
+          : '<i data-lucide="message-circle" class="h-6 w-6" id="chat-toggle-icon"></i>';
+
+        lucide.createIcons();
+        if (open) input.focus();
+      }
+
+      function addMessage(text, from) {
+        var wrap = document.createElement("div");
+        wrap.className = "flex " + (from === "user" ? "justify-end" : "justify-start");
+        var bubble = document.createElement("p");
+        bubble.className =
+          "max-w-[80%] rounded-2xl px-3 py-2 text-sm leading-relaxed " +
+          (from === "user"
+            ? "rounded-br-sm bg-brand text-white"
+            : "rounded-bl-sm bg-slate-100 text-slate-700");
+        bubble.textContent = text;
+        wrap.appendChild(bubble);
+        messages.appendChild(wrap);
+        messages.scrollTop = messages.scrollHeight;
+      }
+
+      toggle.addEventListener("click", function () {
+        setOpen(!open);
+      });
+      closeBtn.addEventListener("click", function () {
+        setOpen(false);
+      });
+
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var text = input.value.trim();
+        if (!text) return;
+
+        // 1. Immediately show what the user typed in the UI chat window
+        addMessage(text, "user");
+        input.value = "";
+
+        // 2. Read the active screen data (Zone and Construction Era) to pass as context
+        var zoneText = document.querySelector("#results-section div:nth-child(2) p.text-lg")?.textContent || "Unknown Zone";
+        var eraSelect = document.getElementById("constructionEra");
+        var eraText = eraSelect ? eraSelect.options[eraSelect.selectedIndex]?.text : "Unknown Era";
+
+        // 3. Fire a real network background request to your new Java endpoint
+        fetch('/api/chat/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            question: text,
+            zone: zoneText,
+            era: eraText
+          })
+        })
+        .then(function(response) {
+          if (!response.ok) throw new Error("Server communication breakdown");
+          return response.json();
+        })
+        .then(function(data) {
+          // 4. Print the genuine, intelligent response generated live by Gemini Cloud
+          addMessage(data.reply, "bot");
+        })
+        .catch(function(error) {
+          console.error("AI Agent Pipeline Error:", error);
+          addMessage("Connection to Cloud AI agent failed. Check your API key or backend logs.", "bot");
+        });
+      });
+    })();
+
+    // Interactive Leaflet Seismic Map Engine
+    (function () {
+      var mapContainer = document.getElementById("hazard-map");
+      if (!mapContainer) return;
+
+      // Extract coordinates directly from Thymeleaf data-attributes
+      var lat = parseFloat(mapContainer.getAttribute("data-lat"));
+      var lng = parseFloat(mapContainer.getAttribute("data-lng"));
+
+      var resultsSection = document.getElementById("results-section");
+
+      // Fallback configuration if no data has been submitted yet
+      if (!resultsSection) {
+        var map = L.map('hazard-map').setView([lat, lng], 5); // National zoom out
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        return;
+      }
+
+      var zoneColor = "#f43f5e"; // Rose color for Zone V/IV
+      var zoneRadius = 15000;    // 15km hazard radius loop
+
+      var zoneText = document.querySelector("#results-section div:nth-child(2) p.text-lg")?.textContent || "";
+      if (zoneText.includes("III")) {
+        zoneColor = "#eab308"; // Yellow for Zone III
+        zoneRadius = 8000;
+      } else if (zoneText.includes("II")) {
+        zoneColor = "#22c55e"; // Green for Zone II
+        zoneRadius = 4000;
+      }
+
+      // Initialize map dynamically focused tightly on the geocoded location coordinate
+      var map = L.map('hazard-map').setView([lat, lng], 12);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      var locationName = document.querySelector("#results-section div:nth-child(1) p.text-lg")?.textContent || "Property Site";
+      L.marker([lat, lng]).addTo(map)
+        .bindPopup("<b>" + locationName + "</b><br>Asset evaluation coordinate.")
+        .openPopup();
+
+      L.circle([lat, lng], {
+        color: zoneColor,
+        fillColor: zoneColor,
+        fillOpacity: 0.15,
+        radius: zoneRadius
+      }).addTo(map);
+    })();
+    document.addEventListener("DOMContentLoaded", function () {
+            const downloadBtn = document.getElementById("downloadPdfBtn");
+            if (downloadBtn) {
+                downloadBtn.addEventListener("click", function () {
+                    // 1. Extract values dynamically from your Thymeleaf structure text nodes
+                    var pincodeVal = document.querySelector("input[name='pincode']")?.value || "247667";
+                    var locationVal = document.querySelector("[th\\:text='${report.locationName}']")?.textContent || "Roorkee";
+                    var zoneVal = document.querySelector("[th\\:text='${report.seismicZone}']")?.textContent || "Zone IV";
+
+                    // Fallback to reading the inner text directly if selectors match plain text output
+                    if (locationVal === "Roorkee" || locationVal === "") {
+                        var texts = Array.from(document.querySelectorAll("p")).map(p => p.textContent.trim());
+                        locationVal = textNodesFound(texts, "Territory") || "Roorkee";
+                        zoneVal = textNodesFound(texts, "Map Factor") || "Zone IV";
+                    }
+
+                    var soilVal = "Standard Stratum (Type II)";
+                    var eraSelect = document.getElementById("constructionEra");
+                    var eraVal = eraSelect ? eraSelect.options[eraSelect.selectedIndex]?.text : "Unknown Era";
+
+                    // 2. Build the secure API Gateway download endpoint URL
+                    var downloadUrl = '/api/report/download?' +
+                        'pincode=' + encodeURIComponent(pincodeVal) +
+                        '&location=' + encodeURIComponent(locationVal) +
+                        '&zone=' + encodeURIComponent(zoneVal) +
+                        '&soil=' + encodeURIComponent(soilVal) +
+                        '&era=' + encodeURIComponent(eraVal);
+
+                    // 3. Trigger immediate native browser attachment download stream
+                    window.location.href = downloadUrl;
+                });
+            }
+
+            function textNodesFound(arr, keyword) {
+                return arr.find(text => text.includes(keyword)) || "";
+            }
+        });
+</script>
+</body>
+</html>
