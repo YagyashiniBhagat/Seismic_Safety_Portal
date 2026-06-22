@@ -146,6 +146,12 @@
             Structural and geotechnical indicators derived from public seismic datasets.
         </p>
 
+        <!-- Hidden data carriers for PDF download -->
+        <span id="data-pincode" th:text="${report.pincode}" class="hidden"></span>
+        <span id="data-location" th:text="${report.locationName}" class="hidden"></span>
+        <span id="data-zone" th:text="${report.seismicZone}" class="hidden"></span>
+        <span id="data-soil" th:text="${report.soilType}" class="hidden"></span>
+
         <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-navy">
@@ -173,7 +179,7 @@
                 </div>
                 <div>
                     <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Site Geotechnical Profile</p>
-                    <p class="mt-1 text-lg font-semibold text-slate-900">Standard Stratum</p>
+                    <p class="mt-1 text-lg font-semibold text-slate-900" th:text="${report.soilType}"></p>
                     <p class="text-sm leading-relaxed text-slate-500">Dynamic soil classification</p>
                 </div>
             </div>
@@ -183,7 +189,7 @@
                 </div>
                 <div>
                     <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Auto-Detected Terrain</p>
-                    <p class="mt-1 text-lg font-semibold text-slate-900">Regional Topography</p>
+                    <p class="mt-1 text-lg font-semibold text-slate-900" th:text="${report.terrain}"></p>
                     <p class="text-sm leading-relaxed text-slate-500">Computed slope gradient</p>
                 </div>
             </div>
@@ -498,42 +504,27 @@
       }).addTo(map);
     })();
     document.addEventListener("DOMContentLoaded", function () {
-            const downloadBtn = document.getElementById("downloadPdfBtn");
-            if (downloadBtn) {
-                downloadBtn.addEventListener("click", function () {
-                    // 1. Extract values dynamically from your Thymeleaf structure text nodes
-                    var pincodeVal = document.querySelector("input[name='pincode']")?.value || "247667";
-                    var locationVal = document.querySelector("[th\\:text='${report.locationName}']")?.textContent || "Roorkee";
-                    var zoneVal = document.querySelector("[th\\:text='${report.seismicZone}']")?.textContent || "Zone IV";
+    const downloadBtn = document.getElementById("downloadPdfBtn");
+    if (downloadBtn) {
+        downloadBtn.addEventListener("click", function () {
+            var pincodeVal = document.getElementById("data-pincode")?.textContent || "Unknown";
+            var locationVal = document.getElementById("data-location")?.textContent || "Unknown";
+            var zoneVal = document.getElementById("data-zone")?.textContent || "Unknown";
+            var soilVal = document.getElementById("data-soil")?.textContent || "Unknown";
+            var eraSelect = document.getElementById("constructionEra");
+            var eraVal = eraSelect ? eraSelect.options[eraSelect.selectedIndex]?.text : "Unknown Era";
 
-                    // Fallback to reading the inner text directly if selectors match plain text output
-                    if (locationVal === "Roorkee" || locationVal === "") {
-                        var texts = Array.from(document.querySelectorAll("p")).map(p => p.textContent.trim());
-                        locationVal = textNodesFound(texts, "Territory") || "Roorkee";
-                        zoneVal = textNodesFound(texts, "Map Factor") || "Zone IV";
-                    }
+            var downloadUrl = '/api/report/download?' +
+                'pincode=' + encodeURIComponent(pincodeVal) +
+                '&location=' + encodeURIComponent(locationVal) +
+                '&zone=' + encodeURIComponent(zoneVal) +
+                '&soil=' + encodeURIComponent(soilVal) +
+                '&era=' + encodeURIComponent(eraVal);
 
-                    var soilVal = "Standard Stratum (Type II)";
-                    var eraSelect = document.getElementById("constructionEra");
-                    var eraVal = eraSelect ? eraSelect.options[eraSelect.selectedIndex]?.text : "Unknown Era";
-
-                    // 2. Build the secure API Gateway download endpoint URL
-                    var downloadUrl = '/api/report/download?' +
-                        'pincode=' + encodeURIComponent(pincodeVal) +
-                        '&location=' + encodeURIComponent(locationVal) +
-                        '&zone=' + encodeURIComponent(zoneVal) +
-                        '&soil=' + encodeURIComponent(soilVal) +
-                        '&era=' + encodeURIComponent(eraVal);
-
-                    // 3. Trigger immediate native browser attachment download stream
-                    window.location.href = downloadUrl;
-                });
-            }
-
-            function textNodesFound(arr, keyword) {
-                return arr.find(text => text.includes(keyword)) || "";
-            }
+            window.location.href = downloadUrl;
         });
+    }
+});
 </script>
 </body>
 </html>
