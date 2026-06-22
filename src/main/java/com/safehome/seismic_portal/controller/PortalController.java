@@ -3,6 +3,7 @@ package com.safehome.seismic_portal.controller;
 import org.springframework.stereotype.Controller;
 import com.safehome.seismic_portal.model.SeismicData;
 import com.safehome.seismic_portal.service.SeismicService;
+import com.safehome.seismic_portal.service.GeminiService;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -10,19 +11,20 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 @Controller
 public class PortalController {
-    private final SeismicService seismicService;
 
-    public PortalController(SeismicService seismicService) {
+    private final SeismicService seismicService;
+    private final GeminiService geminiService;
+
+    public PortalController(SeismicService seismicService, GeminiService geminiService) {
         this.seismicService = seismicService;
+        this.geminiService = geminiService;
     }
 
-    // Displays the initial blank homepage layout
     @GetMapping("/")
     public String showHomepage() {
         return "index";
     }
 
-    // Handles the form submission when the user clicks "Evaluate Location Safety"
     @PostMapping("/evaluate")
     public String evaluateSafety(
             @RequestParam("pincode") String pincode,
@@ -39,8 +41,7 @@ public class PortalController {
         SeismicData data = seismicService.getSafetyProfile(pincode);
 
         if (data != null) {
-            // ---- Dynamic PGA Simulation Logic ----
-            // 1. Calculate PGA value based on the Seismic Zone from your service data
+            // PGA + Intensity logic
             String zone = data.getSeismicZone() != null ? data.getSeismicZone().toUpperCase() : "";
             if (zone.contains("V")) {
                 data.setPgaValue("0.36g");
@@ -56,7 +57,7 @@ public class PortalController {
                 data.setIntensityLevel("VI — Moderate");
             }
 
-            // 2. Generate a structural forecast combining Building Type and Code Era
+            // Structural forecast logic
             if (constructionEra.equals("pre-1990") || constructionEra.equals("1990-2002")) {
                 data.setStructuralForecast("High Vulnerability. Built under legacy code rules. Highly susceptible to severe beam-column joint distress and masonry shear cracks.");
             } else if (constructionEra.equals("2002-2016")) {
@@ -65,12 +66,24 @@ public class PortalController {
                 data.setStructuralForecast("High Code Compliance. Designed under modern strict IS 1893:2016 guidelines. Low risk of structural damage or progressive failure.");
             }
 
+            // Dynamic Gemini AI summary — generated live
+            String aiSummary = geminiService.generateRiskSummary(
+                    data.getLocationName(),
+                    data.getSeismicZone(),
+                    data.getSoilType(),
+                    data.getTerrain(),
+                    constructionEra
+            );
+            data.setAiSummary(aiSummary);
+
             model.addAttribute("report", data);
             model.addAttribute("found", true);
         } else {
-            model.addAttribute("error", "Data not available for this pincode yet.");
             model.addAttribute("found", false);
+            model.addAttribute("error", "notfound");
+            model.addAttribute("searchedPincode", pincode);
         }
+
         return "index";
     }
 }

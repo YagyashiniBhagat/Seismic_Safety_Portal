@@ -22,6 +22,9 @@ public class ReportDownloadController {
             @RequestParam(defaultValue = "Unknown") String zone,
             @RequestParam(defaultValue = "Unknown") String soil,
             @RequestParam(defaultValue = "Unknown") String era,
+            @RequestParam(defaultValue = "Unknown") String pga,
+            @RequestParam(defaultValue = "Unknown") String intensity,
+            @RequestParam(defaultValue = "Unknown") String forecast,
             HttpServletResponse response) throws IOException {
 
         // Configure standard response stream headers for document delivery
@@ -90,6 +93,18 @@ public class ReportDownloadController {
         // Row 2: Soil Parameter Analysis
         addTableCell(riskTable, "Geotechnical Soil Factor", cellLabelFont, lightGrey, borderColor);
         addTableCell(riskTable, "Configured using " + soil + " profiles. Loose stratum layers amplify structural shaking acceleration patterns drastically compared to solid base rock frameworks.", cellValFont, Color.WHITE, borderColor);
+
+        // Row 3: PGA Value
+        addTableCell(riskTable, "Peak Ground Acceleration", cellLabelFont, lightGrey, borderColor);
+        addTableCell(riskTable, "Estimated PGA: " + pga + ". This represents the maximum expected ground shaking force at this location per IS 1893:2016 zone factor tables.", cellValFont, Color.WHITE, borderColor);
+
+// Row 4: Intensity Level
+        addTableCell(riskTable, "Shaking Intensity (MMI)", cellLabelFont, lightGrey, borderColor);
+        addTableCell(riskTable, "Expected intensity: " + intensity + " on the Modified Mercalli Intensity scale based on zone classification.", cellValFont, Color.WHITE, borderColor);
+
+// Row 5: Structural Forecast
+        addTableCell(riskTable, "Structural Vulnerability", cellLabelFont, lightGrey, borderColor);
+        addTableCell(riskTable, forecast, cellValFont, Color.WHITE, borderColor);
 
         document.add(riskTable);
 

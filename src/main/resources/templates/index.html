@@ -140,6 +140,26 @@
         </div>
     </section>
 
+    <!-- Error card for unknown pincode -->
+    <section th:if="${error == 'notfound'}" class="mx-auto w-full max-w-4xl px-6 pt-6">
+        <div class="rounded-2xl border border-rose-200 bg-rose-50 p-6 flex items-start gap-4">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-600">
+                <i data-lucide="map-pin-off" class="h-5 w-5"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-semibold text-rose-800">Pincode Not Found</h3>
+                <p class="mt-1 text-sm text-rose-700">
+                    No seismic data is currently available for pincode
+                    <span class="font-bold" th:text="${searchedPincode}"></span>.
+                    The portal currently covers select high-risk zones across India.
+                    Try <span class="font-semibold">247667</span> (Roorkee),
+                    <span class="font-semibold">110001</span> (Delhi), or
+                    <span class="font-semibold">400001</span> (Mumbai).
+                </p>
+            </div>
+        </div>
+    </section>
+
     <section th:if="${found}" id="results-section" aria-labelledby="results-heading" class="mx-auto w-full max-w-6xl px-6 py-12">
         <h2 id="results-heading" class="text-2xl font-bold tracking-tight text-slate-900">Engineering Risk Dashboard</h2>
         <p class="mt-1 text-sm leading-relaxed text-slate-500">
@@ -151,6 +171,9 @@
         <span id="data-location" th:text="${report.locationName}" class="hidden"></span>
         <span id="data-zone" th:text="${report.seismicZone}" class="hidden"></span>
         <span id="data-soil" th:text="${report.soilType}" class="hidden"></span>
+        <span id="data-pga" th:text="${report.pgaValue}" class="hidden"></span>
+        <span id="data-intensity" th:text="${report.intensityLevel}" class="hidden"></span>
+        <span id="data-forecast" th:text="${report.structuralForecast}" class="hidden"></span>
 
         <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -512,14 +535,19 @@
             var zoneVal = document.getElementById("data-zone")?.textContent || "Unknown";
             var soilVal = document.getElementById("data-soil")?.textContent || "Unknown";
             var eraSelect = document.getElementById("constructionEra");
-            var eraVal = eraSelect ? eraSelect.options[eraSelect.selectedIndex]?.text : "Unknown Era";
+            var eraVal = eraSelect ? eraSelect.options[eraSelect.selectedIndex]?.text : "Unknown Era";var pgaVal = document.getElementById("data-pga")?.textContent || "Unknown";
+            var intensityVal = document.getElementById("data-intensity")?.textContent || "Unknown";
+            var forecastVal = document.getElementById("data-forecast")?.textContent || "Unknown";
 
             var downloadUrl = '/api/report/download?' +
                 'pincode=' + encodeURIComponent(pincodeVal) +
                 '&location=' + encodeURIComponent(locationVal) +
                 '&zone=' + encodeURIComponent(zoneVal) +
                 '&soil=' + encodeURIComponent(soilVal) +
-                '&era=' + encodeURIComponent(eraVal);
+                '&era=' + encodeURIComponent(eraVal) +
+                '&pga=' + encodeURIComponent(pgaVal) +
+                '&intensity=' + encodeURIComponent(intensityVal) +
+                '&forecast=' + encodeURIComponent(forecastVal);
 
             window.location.href = downloadUrl;
         });

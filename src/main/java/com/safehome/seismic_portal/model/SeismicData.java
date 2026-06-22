@@ -37,6 +37,7 @@ public class SeismicData {
     public String getAiSummary() { return aiSummary; }
     public String getPgaValue() { return pgaValue; }
     public void setPgaValue(String pgaValue) { this.pgaValue = pgaValue; }
+    public void setAiSummary(String aiSummary) { this.aiSummary = aiSummary; }
 
     public String getIntensityLevel() { return intensityLevel; }
     public void setIntensityLevel(String intensityLevel) { this.intensityLevel = intensityLevel; }
