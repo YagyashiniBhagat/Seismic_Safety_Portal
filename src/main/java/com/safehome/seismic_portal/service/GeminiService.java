@@ -57,8 +57,7 @@ public class GeminiService {
 
         } catch (Exception e) {
             e.printStackTrace();
-            return "AI summary temporarily unavailable. Based on available data, this location falls in " +
-                    zone + " with " + soilType + " soil conditions.";
+            return "ERROR: " + e.getClass().getSimpleName() + " — " + e.getMessage();
         }
     }
 }
