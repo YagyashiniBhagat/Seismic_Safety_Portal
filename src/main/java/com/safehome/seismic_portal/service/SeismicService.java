@@ -14,7 +14,7 @@ public class SeismicService {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private static final String POSTAL_API_URL = "https://api.postalpincode.in/pincode/";
+    private static final String POSTAL_API_URL = "http://api.postalpincode.in/pincode/";
 
     private static final Map<String, String> TOWN_ZONE_MAP = new HashMap<>();
 
@@ -162,6 +162,7 @@ public class SeismicService {
 
         } catch (Exception e) {
             // Safe production logging fallback - returns null smoothly to let controller handle UI feedback
+            e.printStackTrace();
             return null;
         }
     }
