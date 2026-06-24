@@ -236,4 +236,11 @@ public class SeismicService {
                 location, state, shortZone, soil.toLowerCase()
         );
     }
+    /**
+     * Production Controller Alias Bridge Method
+     * Redirects existing PortalController calls smoothly to the new API engine
+     */
+    public SeismicData getSafetyProfile(String pincode) {
+        return this.getSeismicData(pincode);
+    }
 }
