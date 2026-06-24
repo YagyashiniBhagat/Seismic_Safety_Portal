@@ -118,54 +118,53 @@ public class SeismicService {
         TOWN_ZONE_MAP.put("VIJAYAWADA", zoneII);
     }
 
-    public SeismicData getSeismicData(String pincode) {
-        try {
-            String response = restTemplate.getForObject(POSTAL_API_URL + pincode, String.class);
-            JsonNode root = objectMapper.readTree(response);
+        public SeismicData getSeismicData(String pincode) {
+            try {
+                String response = restTemplate.getForObject("http://api.postalpincode.in/pincode/" + pincode.trim(), String.class);                JsonNode root = objectMapper.readTree(response);
 
-            if (root == null || !root.isArray() || root.get(0) == null) {
+                if (root == null || !root.isArray() || root.get(0) == null) {
+                    return null;
+                }
+
+                JsonNode firstResponse = root.get(0);
+                String status = firstResponse.path("Status").asText();
+                if (!"Success".equalsIgnoreCase(status)) {
+                    return null;
+                }
+
+                JsonNode postOfficeArray = firstResponse.path("PostOffice");
+                if (!postOfficeArray.isArray() || postOfficeArray.size() == 0) {
+                    return null;
+                }
+
+                JsonNode geoNode = postOfficeArray.get(0);
+                String postOfficeName = geoNode.path("Name").asText("");
+                String district = geoNode.path("District").asText("");
+                String state = geoNode.path("State").asText("");
+                String locationName = postOfficeName + ", " + district;
+
+                // Execute search cascade hierarchy
+                String seismicZone = evaluateSeismicZoneCascade(postOfficeName, district, state);
+                String soilType = determineSoilType(state);
+                String terrain = determineTerrain(state);
+                String riskSummary = generateRiskSummary(locationName, state, seismicZone, soilType);
+
+                return new SeismicData(
+                        pincode,
+                        state,
+                        locationName,
+                        seismicZone,
+                        soilType,
+                        terrain,
+                        riskSummary
+                );
+
+            } catch (Exception e) {
+                // Safe production logging fallback - returns null smoothly to let controller handle UI feedback
+                e.printStackTrace();
                 return null;
             }
-
-            JsonNode firstResponse = root.get(0);
-            String status = firstResponse.path("Status").asText();
-            if (!"Success".equalsIgnoreCase(status)) {
-                return null;
-            }
-
-            JsonNode postOfficeArray = firstResponse.path("PostOffice");
-            if (!postOfficeArray.isArray() || postOfficeArray.size() == 0) {
-                return null;
-            }
-
-            JsonNode geoNode = postOfficeArray.get(0);
-            String postOfficeName = geoNode.path("Name").asText("");
-            String district = geoNode.path("District").asText("");
-            String state = geoNode.path("State").asText("");
-            String locationName = postOfficeName + ", " + district;
-
-            // Execute search cascade hierarchy
-            String seismicZone = evaluateSeismicZoneCascade(postOfficeName, district, state);
-            String soilType = determineSoilType(state);
-            String terrain = determineTerrain(state);
-            String riskSummary = generateRiskSummary(locationName, state, seismicZone, soilType);
-
-            return new SeismicData(
-                    pincode,
-                    state,
-                    locationName,
-                    seismicZone,
-                    soilType,
-                    terrain,
-                    riskSummary
-            );
-
-        } catch (Exception e) {
-            // Safe production logging fallback - returns null smoothly to let controller handle UI feedback
-            e.printStackTrace();
-            return null;
         }
-    }
 
     private String evaluateSeismicZoneCascade(String townName, String district, String state) {
         // Safe string conversions ensuring no null pointer exceptions can fire
