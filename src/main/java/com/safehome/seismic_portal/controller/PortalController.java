@@ -42,8 +42,7 @@ public class PortalController {
         pincode = pincode.trim();
 
         // 2. Fetch data directly from the newly upgraded live Post Office API endpoint
-        SeismicData data = seismicService.getSeismicData(pincode);
-
+        SeismicData data = seismicService.getSafetyProfile(pincode);
         if (data != null) {
             // PGA + Intensity calculation logic based on the dynamic cascade zone result
             String zone = data.getSeismicZone() != null ? data.getSeismicZone().toUpperCase() : "";
