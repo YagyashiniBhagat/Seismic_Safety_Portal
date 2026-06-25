@@ -145,7 +145,13 @@ public class SeismicService {
     }
 
     public SeismicService() {
-        this.restClient = RestClient.builder().build();
+        this.restClient = RestClient.builder()
+                .requestFactory(new org.springframework.http.client.JdkClientHttpRequestFactory(
+                        java.net.http.HttpClient.newBuilder()
+                                .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                                .build()
+                ))
+                .build();
     }
 
     public SeismicData getSafetyProfile(String pincode) {
