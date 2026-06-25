@@ -187,6 +187,7 @@ public class SeismicService {
             return data;
 
         } catch (Exception e) {
+            System.out.println("=== SEISMIC SERVICE ERROR: " + e.getClass().getSimpleName() + " — " + e.getMessage() + " ===");
             e.printStackTrace();
             return null;
         }
