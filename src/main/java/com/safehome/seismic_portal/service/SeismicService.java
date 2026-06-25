@@ -1,246 +1,194 @@
 package com.safehome.seismic_portal.service;
 
 import com.safehome.seismic_portal.model.SeismicData;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.web.client.RestClient;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class SeismicService {
 
-    private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private static final String POSTAL_API_URL = "http://api.postalpincode.in/pincode/";
+    private final RestClient restClient;
 
-    private static final Map<String, String> TOWN_ZONE_MAP = new HashMap<>();
+    private static final Map<String, String> STATE_ZONE_MAP = new HashMap<>();
+    private static final Map<String, String> STATE_SOIL_MAP = new HashMap<>();
+    private static final Map<String, String> STATE_TERRAIN_MAP = new HashMap<>();
+    private static final Map<String, double[]> STATE_COORDS_MAP = new HashMap<>();
 
     static {
-        // --- ZONE V (Very High Risk - Z = 0.36g) ---
-        String zoneV = "Zone V (Very High Risk - Z = 0.36g)";
-        TOWN_ZONE_MAP.put("BHUJ", zoneV);
-        TOWN_ZONE_MAP.put("KUTCH", zoneV);
-        TOWN_ZONE_MAP.put("GANDHIDHAM", zoneV);
-        TOWN_ZONE_MAP.put("ANJAR", zoneV);
-        TOWN_ZONE_MAP.put("GUWAHATI", zoneV);
-        TOWN_ZONE_MAP.put("SILCHAR", zoneV);
-        TOWN_ZONE_MAP.put("DIBRUGARH", zoneV);
-        TOWN_ZONE_MAP.put("JORHAT", zoneV);
-        TOWN_ZONE_MAP.put("TEZPUR", zoneV);
-        TOWN_ZONE_MAP.put("IMPHAL", zoneV);
-        TOWN_ZONE_MAP.put("KOHIMA", zoneV);
-        TOWN_ZONE_MAP.put("AIZAWL", zoneV);
-        TOWN_ZONE_MAP.put("SHILLONG", zoneV);
-        TOWN_ZONE_MAP.put("ITANAGAR", zoneV);
-        TOWN_ZONE_MAP.put("GANGTOK", zoneV);
-        TOWN_ZONE_MAP.put("PORT BLAIR", zoneV);
-        TOWN_ZONE_MAP.put("SRINAGAR", zoneV);
-        TOWN_ZONE_MAP.put("KUPWARA", zoneV);
-        TOWN_ZONE_MAP.put("BARAMULLA", zoneV);
-        TOWN_ZONE_MAP.put("JAMMU", zoneV);
-        TOWN_ZONE_MAP.put("CHAMOLI", zoneV);
-        TOWN_ZONE_MAP.put("PITHORAGARH", zoneV);
-        TOWN_ZONE_MAP.put("BAGESHWAR", zoneV);
-        TOWN_ZONE_MAP.put("UTTARKASHI", zoneV);
+        // ZONE V
+        STATE_ZONE_MAP.put("Jammu and Kashmir", "Zone V (Very High Risk)");
+        STATE_ZONE_MAP.put("Himachal Pradesh", "Zone V (Very High Risk)");
+        STATE_ZONE_MAP.put("Uttarakhand", "Zone V (Very High Risk)");
+        STATE_ZONE_MAP.put("Assam", "Zone V (Very High Risk)");
+        STATE_ZONE_MAP.put("Meghalaya", "Zone V (Very High Risk)");
+        STATE_ZONE_MAP.put("Manipur", "Zone V (Very High Risk)");
+        STATE_ZONE_MAP.put("Nagaland", "Zone V (Very High Risk)");
+        STATE_ZONE_MAP.put("Arunachal Pradesh", "Zone V (Very High Risk)");
+        STATE_ZONE_MAP.put("Mizoram", "Zone V (Very High Risk)");
+        STATE_ZONE_MAP.put("Andaman and Nicobar Islands", "Zone V (Very High Risk)");
+        STATE_ZONE_MAP.put("Sikkim", "Zone V (Very High Risk)");
 
-        // --- ZONE IV (High Risk - Z = 0.24g) ---
-        String zoneIV = "Zone IV (High Risk - Z = 0.24g)";
-        TOWN_ZONE_MAP.put("DELHI", zoneIV);
-        TOWN_ZONE_MAP.put("NEW DELHI", zoneIV);
-        TOWN_ZONE_MAP.put("ROORKEE", zoneIV);
-        TOWN_ZONE_MAP.put("HARIDWAR", zoneIV);
-        TOWN_ZONE_MAP.put("DEHRADUN", zoneIV);
-        TOWN_ZONE_MAP.put("HALDWANI", zoneIV);
-        TOWN_ZONE_MAP.put("NAINITAL", zoneIV);
-        TOWN_ZONE_MAP.put("SHIMLA", zoneIV);
-        TOWN_ZONE_MAP.put("MANALI", zoneIV);
-        TOWN_ZONE_MAP.put("DHARAMSHALA", zoneIV);
-        TOWN_ZONE_MAP.put("KANGRA", zoneIV);
-        TOWN_ZONE_MAP.put("PATNA", zoneIV);
-        TOWN_ZONE_MAP.put("DARBHANGA", zoneIV);
-        TOWN_ZONE_MAP.put("MADHUBANI", zoneIV);
-        TOWN_ZONE_MAP.put("SITAMARHI", zoneIV);
-        TOWN_ZONE_MAP.put("PURNEA", zoneIV);
-        TOWN_ZONE_MAP.put("MEERUT", zoneIV);
-        TOWN_ZONE_MAP.put("GHAZIABAD", zoneIV);
-        TOWN_ZONE_MAP.put("NOIDA", zoneIV);
-        TOWN_ZONE_MAP.put("GREATER NOIDA", zoneIV);
-        TOWN_ZONE_MAP.put("GAUTAM BUDDH NAGAR", zoneIV);
-        TOWN_ZONE_MAP.put("MORADABAD", zoneIV);
-        TOWN_ZONE_MAP.put("AMRITSAR", zoneIV);
-        TOWN_ZONE_MAP.put("JALANDHAR", zoneIV);
-        TOWN_ZONE_MAP.put("LUDHIANA", zoneIV);
+        // ZONE IV
+        STATE_ZONE_MAP.put("Bihar", "Zone IV (High Risk)");
+        STATE_ZONE_MAP.put("West Bengal", "Zone IV (High Risk)");
+        STATE_ZONE_MAP.put("Delhi", "Zone IV (High Risk)");
+        STATE_ZONE_MAP.put("Punjab", "Zone IV (High Risk)");
+        STATE_ZONE_MAP.put("Haryana", "Zone IV (High Risk)");
+        STATE_ZONE_MAP.put("Uttar Pradesh", "Zone IV (High Risk)");
+        STATE_ZONE_MAP.put("Gujarat", "Zone IV (High Risk)");
+        STATE_ZONE_MAP.put("Tripura", "Zone IV (High Risk)");
+        STATE_ZONE_MAP.put("Ladakh", "Zone IV (High Risk)");
 
-        // --- ZONE III (Moderate Risk - Z = 0.16g) ---
-        String zoneIII = "Zone III (Moderate Risk - Z = 0.16g)";
-        TOWN_ZONE_MAP.put("MUMBAI", zoneIII);
-        TOWN_ZONE_MAP.put("PUNE", zoneIII);
-        TOWN_ZONE_MAP.put("THANE", zoneIII);
-        TOWN_ZONE_MAP.put("NASHIK", zoneIII);
-        TOWN_ZONE_MAP.put("SURAT", zoneIII);
-        TOWN_ZONE_MAP.put("AHMEDABAD", zoneIII);
-        TOWN_ZONE_MAP.put("VADODARA", zoneIII);
-        TOWN_ZONE_MAP.put("RAJKOT", zoneIII);
-        TOWN_ZONE_MAP.put("BHAVNAGAR", zoneIII);
-        TOWN_ZONE_MAP.put("KOLKATA", zoneIII);
-        TOWN_ZONE_MAP.put("ASANSOL", zoneIII);
-        TOWN_ZONE_MAP.put("SILIGURI", zoneIII);
-        TOWN_ZONE_MAP.put("BHUBANESWAR", zoneIII);
-        TOWN_ZONE_MAP.put("CUTTACK", zoneIII);
-        TOWN_ZONE_MAP.put("ROURKELA", zoneIII);
-        TOWN_ZONE_MAP.put("KOCHI", zoneIII);
-        TOWN_ZONE_MAP.put("THIRUVANANTHAPURAM", zoneIII);
-        TOWN_ZONE_MAP.put("KOZHIKODE", zoneIII);
-        TOWN_ZONE_MAP.put("CHENNAI", zoneIII);
-        TOWN_ZONE_MAP.put("COIMBATORE", zoneIII);
-        TOWN_ZONE_MAP.put("AGRA", zoneIII);
-        TOWN_ZONE_MAP.put("KANPUR", zoneIII);
-        TOWN_ZONE_MAP.put("LUCKNOW", zoneIII);
-        TOWN_ZONE_MAP.put("VARANASI", zoneIII);
-        TOWN_ZONE_MAP.put("PRAYAGRAJ", zoneIII);
+        // ZONE III
+        STATE_ZONE_MAP.put("Maharashtra", "Zone III (Moderate Risk)");
+        STATE_ZONE_MAP.put("Odisha", "Zone III (Moderate Risk)");
+        STATE_ZONE_MAP.put("Chhattisgarh", "Zone III (Moderate Risk)");
+        STATE_ZONE_MAP.put("Jharkhand", "Zone III (Moderate Risk)");
+        STATE_ZONE_MAP.put("Rajasthan", "Zone III (Moderate Risk)");
+        STATE_ZONE_MAP.put("Madhya Pradesh", "Zone III (Moderate Risk)");
+        STATE_ZONE_MAP.put("Kerala", "Zone III (Moderate Risk)");
+        STATE_ZONE_MAP.put("Tamil Nadu", "Zone III (Moderate Risk)");
+        STATE_ZONE_MAP.put("Puducherry", "Zone III (Moderate Risk)");
+        STATE_ZONE_MAP.put("Goa", "Zone III (Moderate Risk)");
 
-        // --- ZONE II (Low Risk - Z = 0.10g) ---
-        String zoneII = "Zone II (Low Risk - Z = 0.10g)";
-        TOWN_ZONE_MAP.put("HYDERABAD", zoneII);
-        TOWN_ZONE_MAP.put("BENGALURU", zoneII);
-        TOWN_ZONE_MAP.put("MYSURU", zoneII);
-        TOWN_ZONE_MAP.put("JAIPUR", zoneII);
-        TOWN_ZONE_MAP.put("JODHPUR", zoneII);
-        TOWN_ZONE_MAP.put("UDAIPUR", zoneII);
-        TOWN_ZONE_MAP.put("BHOPAL", zoneII);
-        TOWN_ZONE_MAP.put("INDORE", zoneII);
-        TOWN_ZONE_MAP.put("GWALIOR", zoneII);
-        TOWN_ZONE_MAP.put("NAGPUR", zoneII);
-        TOWN_ZONE_MAP.put("VISAKHAPATNAM", zoneII);
-        TOWN_ZONE_MAP.put("VIJAYAWADA", zoneII);
+        // ZONE II
+        STATE_ZONE_MAP.put("Andhra Pradesh", "Zone II (Low Risk)");
+        STATE_ZONE_MAP.put("Telangana", "Zone II (Low Risk)");
+        STATE_ZONE_MAP.put("Karnataka", "Zone II (Low Risk)");
+        STATE_ZONE_MAP.put("Chandigarh", "Zone II (Low Risk)");
+
+        // SOIL TYPES
+        STATE_SOIL_MAP.put("Uttarakhand", "Type II – Medium Alluvial/Silt");
+        STATE_SOIL_MAP.put("Himachal Pradesh", "Type I – Rock / Hard Soil");
+        STATE_SOIL_MAP.put("Jammu and Kashmir", "Type I – Rock / Hard Soil");
+        STATE_SOIL_MAP.put("Delhi", "Type II – Alluvial Plains");
+        STATE_SOIL_MAP.put("Uttar Pradesh", "Type II – Alluvial Plains");
+        STATE_SOIL_MAP.put("Bihar", "Type II – Alluvial Plains");
+        STATE_SOIL_MAP.put("Punjab", "Type II – Alluvial Plains");
+        STATE_SOIL_MAP.put("Haryana", "Type II – Alluvial Plains");
+        STATE_SOIL_MAP.put("West Bengal", "Type III – Soft Alluvial / River Delta");
+        STATE_SOIL_MAP.put("Assam", "Type III – Soft Alluvial / River Delta");
+        STATE_SOIL_MAP.put("Odisha", "Type III – Soft Alluvial / River Delta");
+        STATE_SOIL_MAP.put("Maharashtra", "Type I – Hard Rock / Basalt");
+        STATE_SOIL_MAP.put("Karnataka", "Type I – Granite / Hard Rock");
+        STATE_SOIL_MAP.put("Telangana", "Type I – Granite / Hard Rock");
+        STATE_SOIL_MAP.put("Andhra Pradesh", "Type I – Granite / Hard Rock");
+        STATE_SOIL_MAP.put("Tamil Nadu", "Type II – Coastal Alluvial");
+        STATE_SOIL_MAP.put("Kerala", "Type II – Coastal Alluvial");
+        STATE_SOIL_MAP.put("Goa", "Type II – Coastal Alluvial");
+        STATE_SOIL_MAP.put("Gujarat", "Type II – Coastal Alluvial");
+        STATE_SOIL_MAP.put("Rajasthan", "Type I – Sandy / Arid Soil");
+        STATE_SOIL_MAP.put("Madhya Pradesh", "Type II – Black Cotton Soil");
+        STATE_SOIL_MAP.put("Chhattisgarh", "Type II – Black Cotton Soil");
+
+        // TERRAIN
+        STATE_TERRAIN_MAP.put("Uttarakhand", "Hilly / Himalayan Slope");
+        STATE_TERRAIN_MAP.put("Himachal Pradesh", "Hilly / Himalayan Slope");
+        STATE_TERRAIN_MAP.put("Jammu and Kashmir", "Hilly / Himalayan Slope");
+        STATE_TERRAIN_MAP.put("Sikkim", "Hilly / Himalayan Slope");
+        STATE_TERRAIN_MAP.put("Arunachal Pradesh", "Hilly / Himalayan Slope");
+        STATE_TERRAIN_MAP.put("Assam", "Low-lying River Valley");
+        STATE_TERRAIN_MAP.put("West Bengal", "Low-lying Delta Plain");
+        STATE_TERRAIN_MAP.put("Odisha", "Low-lying Coastal Plain");
+        STATE_TERRAIN_MAP.put("Kerala", "Coastal / Low-lying");
+        STATE_TERRAIN_MAP.put("Tamil Nadu", "Coastal Plain");
+        STATE_TERRAIN_MAP.put("Goa", "Coastal Rocky Terrain");
+        STATE_TERRAIN_MAP.put("Maharashtra", "Coastal Rocky Terrain");
+        STATE_TERRAIN_MAP.put("Gujarat", "Low Coastal Plain");
+        STATE_TERRAIN_MAP.put("Rajasthan", "Arid Desert Plain");
+        STATE_TERRAIN_MAP.put("Delhi", "Flat Urban Plain");
+        STATE_TERRAIN_MAP.put("Punjab", "Flat Alluvial Plain");
+        STATE_TERRAIN_MAP.put("Haryana", "Flat Alluvial Plain");
+        STATE_TERRAIN_MAP.put("Uttar Pradesh", "Flat Alluvial Plain");
+        STATE_TERRAIN_MAP.put("Bihar", "Flat Alluvial Plain");
+        STATE_TERRAIN_MAP.put("Madhya Pradesh", "Deccan Plateau");
+        STATE_TERRAIN_MAP.put("Chhattisgarh", "Deccan Plateau");
+        STATE_TERRAIN_MAP.put("Karnataka", "Deccan Plateau");
+        STATE_TERRAIN_MAP.put("Telangana", "Deccan Plateau");
+        STATE_TERRAIN_MAP.put("Andhra Pradesh", "Deccan Plateau");
+
+        // COORDINATES
+        STATE_COORDS_MAP.put("Uttarakhand", new double[]{30.0668, 79.0193});
+        STATE_COORDS_MAP.put("Himachal Pradesh", new double[]{31.1048, 77.1734});
+        STATE_COORDS_MAP.put("Jammu and Kashmir", new double[]{33.7782, 76.5762});
+        STATE_COORDS_MAP.put("Delhi", new double[]{28.6139, 77.2090});
+        STATE_COORDS_MAP.put("Uttar Pradesh", new double[]{26.8467, 80.9462});
+        STATE_COORDS_MAP.put("Bihar", new double[]{25.0961, 85.3131});
+        STATE_COORDS_MAP.put("West Bengal", new double[]{22.5726, 88.3639});
+        STATE_COORDS_MAP.put("Assam", new double[]{26.2006, 92.9376});
+        STATE_COORDS_MAP.put("Maharashtra", new double[]{19.7515, 75.7139});
+        STATE_COORDS_MAP.put("Gujarat", new double[]{22.2587, 71.1924});
+        STATE_COORDS_MAP.put("Rajasthan", new double[]{27.0238, 74.2179});
+        STATE_COORDS_MAP.put("Madhya Pradesh", new double[]{22.9734, 78.6569});
+        STATE_COORDS_MAP.put("Karnataka", new double[]{15.3173, 75.7139});
+        STATE_COORDS_MAP.put("Telangana", new double[]{17.3616, 78.4747});
+        STATE_COORDS_MAP.put("Andhra Pradesh", new double[]{15.9129, 79.7400});
+        STATE_COORDS_MAP.put("Tamil Nadu", new double[]{11.1271, 78.6569});
+        STATE_COORDS_MAP.put("Kerala", new double[]{10.8505, 76.2711});
+        STATE_COORDS_MAP.put("Odisha", new double[]{20.9517, 85.0985});
+        STATE_COORDS_MAP.put("Punjab", new double[]{31.1471, 75.3412});
+        STATE_COORDS_MAP.put("Haryana", new double[]{29.0588, 76.0856});
+        STATE_COORDS_MAP.put("Chhattisgarh", new double[]{21.2787, 81.8661});
+        STATE_COORDS_MAP.put("Jharkhand", new double[]{23.6102, 85.2799});
+        STATE_COORDS_MAP.put("Goa", new double[]{15.2993, 74.1240});
+        STATE_COORDS_MAP.put("Sikkim", new double[]{27.5330, 88.5122});
+        STATE_COORDS_MAP.put("Meghalaya", new double[]{25.4670, 91.3662});
+        STATE_COORDS_MAP.put("Manipur", new double[]{24.6637, 93.9063});
+        STATE_COORDS_MAP.put("Nagaland", new double[]{26.1584, 94.5624});
+        STATE_COORDS_MAP.put("Arunachal Pradesh", new double[]{28.2180, 94.7278});
+        STATE_COORDS_MAP.put("Mizoram", new double[]{23.1645, 92.9376});
+        STATE_COORDS_MAP.put("Tripura", new double[]{23.9408, 91.9882});
+        STATE_COORDS_MAP.put("Andaman and Nicobar Islands", new double[]{11.7401, 92.6586});
     }
 
-        public SeismicData getSeismicData(String pincode) {
-            try {
-                String response = restTemplate.getForObject("http://api.postalpincode.in/pincode/" + pincode.trim(), String.class);                JsonNode root = objectMapper.readTree(response);
-
-                if (root == null || !root.isArray() || root.get(0) == null) {
-                    return null;
-                }
-
-                JsonNode firstResponse = root.get(0);
-                String status = firstResponse.path("Status").asText();
-                if (!"Success".equalsIgnoreCase(status)) {
-                    return null;
-                }
-
-                JsonNode postOfficeArray = firstResponse.path("PostOffice");
-                if (!postOfficeArray.isArray() || postOfficeArray.size() == 0) {
-                    return null;
-                }
-
-                JsonNode geoNode = postOfficeArray.get(0);
-                String postOfficeName = geoNode.path("Name").asText("");
-                String district = geoNode.path("District").asText("");
-                String state = geoNode.path("State").asText("");
-                String locationName = postOfficeName + ", " + district;
-
-                // Execute search cascade hierarchy
-                String seismicZone = evaluateSeismicZoneCascade(postOfficeName, district, state);
-                String soilType = determineSoilType(state);
-                String terrain = determineTerrain(state);
-                String riskSummary = generateRiskSummary(locationName, state, seismicZone, soilType);
-
-                return new SeismicData(
-                        pincode,
-                        state,
-                        locationName,
-                        seismicZone,
-                        soilType,
-                        terrain,
-                        riskSummary
-                );
-
-            } catch (Exception e) {
-                // Safe production logging fallback - returns null smoothly to let controller handle UI feedback
-                e.printStackTrace();
-                return null;
-            }
-        }
-
-    private String evaluateSeismicZoneCascade(String townName, String district, String state) {
-        // Safe string conversions ensuring no null pointer exceptions can fire
-        String cleanTown = townName != null ? townName.trim().toUpperCase() : "";
-        String cleanDistrict = district != null ? district.trim().toUpperCase() : "";
-
-        // 1. Direct municipal key match lookup
-        if (!cleanTown.isEmpty() && TOWN_ZONE_MAP.containsKey(cleanTown)) {
-            return TOWN_ZONE_MAP.get(cleanTown);
-        }
-
-        // 2. District level resolution fallback check
-        if (!cleanDistrict.isEmpty() && TOWN_ZONE_MAP.containsKey(cleanDistrict)) {
-            return TOWN_ZONE_MAP.get(cleanDistrict);
-        }
-
-        // 3. Macro state scale baseline fallback
-        return fallbackStateLevelZone(state);
+    public SeismicService() {
+        this.restClient = RestClient.builder().build();
     }
 
-    private String fallbackStateLevelZone(String state) {
-        if (state == null) return "Zone II (Low Risk - Z = 0.10g)";
-        String cleanState = state.trim().toUpperCase();
-
-        if (cleanState.matches("ASSAM|MEGHALAYA|MANIPUR|MIZORAM|NAGALAND|TRIPURA|ANDAMAN AND NICOBAR ISLANDS")) {
-            return "Zone V (Very High Risk - Z = 0.36g)";
-        }
-        if (cleanState.matches("UTTARAKHAND|HIMACHAL PRADESH|DELHI|JAMMU AND KASHMIR|LADAKH|SIKKIM")) {
-            return "Zone IV (High Risk - Z = 0.24g)";
-        }
-        if (cleanState.matches("MAHARASHTRA|GUJARAT|WEST BENGAL|ODISHA|KERALA|GOA|TAMIL NADU|BIHAR|UTTAR PRADESH|PUNJAB|HARYANA")) {
-            return "Zone III (Moderate Risk - Z = 0.16g)";
-        }
-        return "Zone II (Low Risk - Z = 0.10g)";
-    }
-
-    private String determineSoilType(String state) {
-        if (state == null) return "Type I – Hard Rock / Basaltic Deccan Bedrock";
-        String cleanState = state.trim().toUpperCase();
-
-        if (cleanState.matches("WEST BENGAL|ODISHA|ANDHRA PRADESH|TAMIL NADU")) {
-            return "Type III – Soft Alluvial / Deep River Deltaic Silt";
-        }
-        if (cleanState.matches("UTTAR PRADESH|BIHAR|DELHI|PUNJAB|HARYANA|ASSAM|UTTARAKHAND")) {
-            return "Type II – Medium Dense Alluvium / Stiff Clay Plains";
-        }
-        return "Type I – Hard Rock / Basaltic Deccan Bedrock";
-    }
-
-    private String determineTerrain(String state) {
-        if (state == null) return "Low-Lying Flat Coastal/Alluvial Plain";
-        String cleanState = state.trim().toUpperCase();
-
-        if (cleanState.matches("UTTARAKHAND|HIMACHAL PRADESH|JAMMU AND KASHMIR|SIKKIM|ARUNACHAL PRADESH|MEGHALAYA|NAGALAND|MANIPUR|MIZORAM")) {
-            return "Hilly / High-Slope Mountainous Terrain";
-        }
-        if (cleanState.matches("MAHARASHTRA|MADHYA PRADESH|KARNATAKA|TELANGANA")) {
-            return "Stable Elevated Deccan Plateau Plain";
-        }
-        return "Low-Lying Flat Coastal/Alluvial Plain";
-    }
-
-    private String generateRiskSummary(String location, String state, String zone, String soil) {
-        String shortZone = zone.split("\\(")[0].trim();
-        return String.format(
-                "Automated geotechnical profile compiled for %s, %s. Local classification falls into %s under IS 1893:2016 parameters. " +
-                        "The regional subsurface geological structure features %s. Foundation profiles must strictly adhere to municipal code " +
-                        "regulations and structural design validations matching these specific environmental constraints.",
-                location, state, shortZone, soil.toLowerCase()
-        );
-    }
-    /**
-     * Production Controller Alias Bridge Method
-     * Redirects existing PortalController calls smoothly to the new API engine
-     */
     public SeismicData getSafetyProfile(String pincode) {
-        return this.getSeismicData(pincode);
+        try {
+            String url = "https://api.postalpincode.in/pincode/" + pincode;
+
+            List response = restClient.get()
+                    .uri(url)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(List.class);
+
+            if (response == null || response.isEmpty()) return null;
+
+            Map<?, ?> firstResult = (Map<?, ?>) response.get(0);
+            String status = (String) firstResult.get("Status");
+            if (!"Success".equals(status)) return null;
+
+            List<?> postOffices = (List<?>) firstResult.get("PostOffice");
+            if (postOffices == null || postOffices.isEmpty()) return null;
+
+            Map<?, ?> postOffice = (Map<?, ?>) postOffices.get(0);
+            String district = (String) postOffice.get("District");
+            String state = (String) postOffice.get("State");
+            String name = (String) postOffice.get("Name");
+            String locationName = name + ", " + district;
+
+            String zone = STATE_ZONE_MAP.getOrDefault(state, "Zone III (Moderate Risk)");
+            String soil = STATE_SOIL_MAP.getOrDefault(state, "Type II – Mixed Alluvial Soil");
+            String terrain = STATE_TERRAIN_MAP.getOrDefault(state, "Mixed Terrain");
+
+            double[] coords = STATE_COORDS_MAP.getOrDefault(state, new double[]{20.5937, 78.9629});
+
+            SeismicData data = new SeismicData(
+                    pincode, district, locationName, zone, soil, terrain, ""
+            );
+            data.setLatitude(coords[0]);
+            data.setLongitude(coords[1]);
+            return data;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 }
