@@ -152,7 +152,7 @@ public class SeismicService {
         try {
             String url = "https://api.postalpincode.in/pincode/" + pincode;
 
-            List response = restClient.get()
+            List<?> response = restClient.get()
                     .uri(url)
                     .accept(MediaType.APPLICATION_JSON)
                     .retrieve()
