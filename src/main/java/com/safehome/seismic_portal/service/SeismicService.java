@@ -10,8 +10,6 @@ import java.util.*;
 @Service
 public class SeismicService {
 
-    private final RestClient restClient;
-
     private static final Map<String, String> STATE_ZONE_MAP = new HashMap<>();
     private static final Map<String, String> STATE_SOIL_MAP = new HashMap<>();
     private static final Map<String, String> STATE_TERRAIN_MAP = new HashMap<>();
@@ -145,55 +143,51 @@ public class SeismicService {
     }
 
     public SeismicService() {
-        this.restClient = RestClient.builder()
-                .requestFactory(new org.springframework.http.client.JdkClientHttpRequestFactory(
-                        java.net.http.HttpClient.newBuilder()
-                                .version(java.net.http.HttpClient.Version.HTTP_1_1)
-                                .build()
-                ))
-                .build();
     }
 
     public SeismicData getSafetyProfile(String pincode) {
         try {
-            String url = "https://api.postalpincode.in/pincode/" + pincode;
+            okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
+                    .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                    .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                    .build();
 
-            List<?> response = restClient.get()
-                    .uri(url)
-                    .accept(MediaType.APPLICATION_JSON)
-                    .retrieve()
-                    .body(List.class);
+            okhttp3.Request request = new okhttp3.Request.Builder()
+                    .url("https://api.postalpincode.in/pincode/" + pincode)
+                    .addHeader("User-Agent", "Mozilla/5.0")
+                    .addHeader("Accept", "application/json")
+                    .build();
 
-            if (response == null || response.isEmpty()) return null;
+            okhttp3.Response response = client.newCall(request).execute();
+            String body = response.body().string();
 
-            Map<?, ?> firstResult = (Map<?, ?>) response.get(0);
-            String status = (String) firstResult.get("Status");
+            com.fasterxml.jackson.databind.ObjectMapper mapper =
+                    new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(body);
+
+            String status = root.get(0).path("Status").asText();
             if (!"Success".equals(status)) return null;
 
-            List<?> postOffices = (List<?>) firstResult.get("PostOffice");
-            if (postOffices == null || postOffices.isEmpty()) return null;
+            com.fasterxml.jackson.databind.JsonNode postOffice =
+                    root.get(0).path("PostOffice").get(0);
 
-            Map<?, ?> postOffice = (Map<?, ?>) postOffices.get(0);
-            String district = (String) postOffice.get("District");
-            String state = (String) postOffice.get("State");
-            String name = (String) postOffice.get("Name");
+            String district = postOffice.path("District").asText();
+            String state = postOffice.path("State").asText();
+            String name = postOffice.path("Name").asText();
             String locationName = name + ", " + district;
 
             String zone = STATE_ZONE_MAP.getOrDefault(state, "Zone III (Moderate Risk)");
             String soil = STATE_SOIL_MAP.getOrDefault(state, "Type II – Mixed Alluvial Soil");
             String terrain = STATE_TERRAIN_MAP.getOrDefault(state, "Mixed Terrain");
-
             double[] coords = STATE_COORDS_MAP.getOrDefault(state, new double[]{20.5937, 78.9629});
 
-            SeismicData data = new SeismicData(
-                    pincode, district, locationName, zone, soil, terrain, ""
-            );
+            SeismicData data = new SeismicData(pincode, district, locationName, zone, soil, terrain, "");
             data.setLatitude(coords[0]);
             data.setLongitude(coords[1]);
             return data;
 
         } catch (Exception e) {
-            System.out.println("=== SEISMIC SERVICE ERROR: " + e.getClass().getSimpleName() + " — " + e.getMessage() + " ===");
+            System.out.println("=== SEISMIC ERROR: " + e.getMessage() + " ===");
             e.printStackTrace();
             return null;
         }
