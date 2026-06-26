@@ -133,15 +133,15 @@ public class ReportDownloadController {
         document.add(boxContainer);
 
         // Document Legal Footer Notice
-        String timestamp = new java.text.SimpleDateFormat("dd MMM yyyy, hh:mm a").format(new java.util.Date());
-
+        String timestamp = new java.text.SimpleDateFormat("dd MMM yyyy, hh:mm a"){{
+            setTimeZone(java.util.TimeZone.getTimeZone("Asia/Kolkata"));
+        }}.format(new java.util.Date());
         Paragraph footerNotice = new Paragraph("\n\n\n\n\n\n\n\nReport Generated: " + timestamp +
                 " | IIT Roorkee Earthquake Engineering Department\n" +
                 "* Disclaimer: This automated report card provides mathematical estimations based upon public Bureau of Indian Standards mapping datasets. Direct structural engineering blueprints override general automated computations.",
                 FontFactory.getFont(FontFactory.HELVETICA, 8, Font.ITALIC, Color.GRAY));
         footerNotice.setAlignment(Element.ALIGN_CENTER);
         document.add(footerNotice);        footerNotice.setAlignment(Element.ALIGN_CENTER);
-        document.add(footerNotice);
 
         document.close();
     }
