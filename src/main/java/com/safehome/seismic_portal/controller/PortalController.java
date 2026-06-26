@@ -8,16 +8,23 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import jakarta.servlet.http.HttpSession;
+import java.util.List;
+import java.util.ArrayList;
+import com.safehome.seismic_portal.service.RateLimitService;
+import jakarta.servlet.http.HttpServletRequest;
 
 @Controller
 public class PortalController {
 
     private final SeismicService seismicService;
     private final GeminiService geminiService;
+    private final RateLimitService rateLimitService;
 
-    public PortalController(SeismicService seismicService, GeminiService geminiService) {
+    public PortalController(SeismicService seismicService, GeminiService geminiService, RateLimitService rateLimitService) {
         this.seismicService = seismicService;
         this.geminiService = geminiService;
+        this.rateLimitService = rateLimitService;
     }
 
     @GetMapping("/")
@@ -30,7 +37,16 @@ public class PortalController {
             @RequestParam("pincode") String pincode,
             @RequestParam(value = "propertyType", defaultValue = "independent-house") String propertyType,
             @RequestParam(value = "constructionEra", defaultValue = "post-2016") String constructionEra,
-            Model model) {
+            Model model,
+            HttpSession session,
+            HttpServletRequest request) {
+
+        String ip = request.getRemoteAddr();
+        if (!rateLimitService.isAllowed(ip)) {
+            model.addAttribute("error", "ratelimit");
+            model.addAttribute("found", false);
+            return "index";
+        }
 
         // 1. Strict structural length sanitation format validation
         if (pincode == null || !pincode.trim().matches("^[0-9]{6}$")) {
@@ -87,6 +103,15 @@ public class PortalController {
                     constructionEra
             );
             data.setAiSummary(aiSummary);
+
+            // Session history
+            List<String> history = (List<String>) session.getAttribute("searchHistory");
+            if (history == null) history = new ArrayList<>();
+            String historyEntry = pincode + "|" + data.getLocationName() + "|" + data.getSeismicZone();
+            if (!history.contains(historyEntry)) history.add(0, historyEntry);
+            if (history.size() > 5) history = history.subList(0, 5);
+            session.setAttribute("searchHistory", history);
+            model.addAttribute("searchHistory", history);
 
             model.addAttribute("report", data);
             model.addAttribute("found", true);
