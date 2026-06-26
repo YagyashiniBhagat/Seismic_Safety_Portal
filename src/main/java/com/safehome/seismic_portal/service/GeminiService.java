@@ -40,8 +40,7 @@ public class GeminiService {
 
         System.out.println("=== GEMINI API KEY LENGTH: " + (apiKey != null ? apiKey.length() : "NULL") + " ===");
         System.out.println("=== GEMINI API KEY FIRST 10 CHARS: " + (apiKey != null && apiKey.length() > 10 ? apiKey.substring(0, 10) : apiKey) + " ===");
-        String endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
-
+        String endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" + apiKey;
         try {
             Map<String, Object> response = restClient.post()
                     .uri(endpointUrl)
